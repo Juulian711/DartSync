@@ -1,7 +1,7 @@
 import assert from 'node:assert/strict';
 import {chromium} from 'playwright';
 import {entriesDom,matchesDom,performanceDom,eventMetaDom} from './readers.mjs';
-const browser=await chromium.launch({headless:true,chromiumSandbox:true});
+const browser=await chromium.launch({channel:'chrome',headless:true,chromiumSandbox:true});
 try{const context=await browser.newContext({viewport:{width:1360,height:1000},locale:'en-GB'}),page=await context.newPage();
 const base='https://tv.dartconnect.com/event/pdcpc26e28';
 await page.goto(base+'/entries',{waitUntil:'domcontentloaded'});await page.locator('tbody[id^="entries-group-"] td').first().waitFor({timeout:45000});const players=await page.evaluate(entriesDom);assert(players.length>=128,'Teilnehmerliste unvollständig');assert(players.some(p=>p.name==='Gabriel Clemens'&&p.isGerman),'Deutsche Zuordnung fehlt');
