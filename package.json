@@ -1,0 +1,1 @@
+{"name":"dartsync-cloud","private":true,"type":"module","version":"4.0.0","scripts":{"start":"node worker.mjs"},"dependencies":{"playwright":"1.64.1"}}

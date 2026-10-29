@@ -1,0 +1,72 @@
+name: DartSync automatisch
+on:
+  push:
+    branches: [main]
+  schedule:
+    - cron: '17,47 * * * *'
+  workflow_dispatch:
+    inputs:
+      backfill:
+        description: 'Historische Turniere ebenfalls einlesen (einmaliger Erstimport)'
+        type: boolean
+        default: false
+      events:
+        description: 'Optional: gezielte Turniere, z. B. 2026:28'
+        type: string
+        default: ''
+permissions:
+  contents: read
+concurrency:
+  group: dartsync
+  cancel-in-progress: false
+jobs:
+  source-test:
+    name: DartConnect-Zugriff testen
+    if: github.event.repository.private == false && github.event_name == 'push'
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '24'
+      - run: npm install --omit=dev --ignore-scripts
+      - run: npx playwright install --with-deps chromium
+      - run: node verify-source.mjs
+  sync:
+    name: Google-Tabelle synchronisieren
+    if: github.event.repository.private == false && github.event_name != 'push'
+    runs-on: ubuntu-latest
+    timeout-minutes: 25
+    env:
+      APPS_SCRIPT_URL: ${{ secrets.APPS_SCRIPT_URL }}
+      SYNC_TOKEN: ${{ secrets.SYNC_TOKEN }}
+    steps:
+      - name: Verbindung prüfen
+        id: config
+        shell: bash
+        run: |
+          if [ -z "$APPS_SCRIPT_URL" ] || [ -z "$SYNC_TOKEN" ]; then
+            echo 'ready=false' >> "$GITHUB_OUTPUT"
+            echo '::notice::Noch nicht eingerichtet: APPS_SCRIPT_URL und SYNC_TOKEN als Repository-Secrets hinterlegen. Es wurden keine Daten übertragen.'
+          else
+            echo 'ready=true' >> "$GITHUB_OUTPUT"
+          fi
+      - uses: actions/checkout@v4
+        if: steps.config.outputs.ready == 'true'
+      - uses: actions/setup-node@v4
+        if: steps.config.outputs.ready == 'true'
+        with:
+          node-version: '24'
+      - name: Browser installieren
+        if: steps.config.outputs.ready == 'true'
+        run: |
+          npm install --omit=dev --ignore-scripts
+          npx playwright install --with-deps chromium
+      - name: DartConnect auslesen und Tabelle aktualisieren
+        if: steps.config.outputs.ready == 'true'
+        run: node worker.mjs
+        env:
+          RUN_ONCE: 'true'
+          BACKFILL_ON_START: ${{ inputs.backfill && 'true' || 'false' }}
+          EVENT_FILTER: ${{ inputs.events || '' }}
