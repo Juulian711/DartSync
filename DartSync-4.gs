@@ -162,7 +162,7 @@ function seasonViewSpec_(y,c){
       '=IF(OR(ISNUMBER(P'+h+'),ISNUMBER(Q'+h+')),SUM($P$2:P'+h+')-SUM($Q$2:Q'+h+'),"")',
       '=IF(AND(ISNUMBER(P'+h+'),'+ref('E',r)+'="Ja"),'+ref('AJ',r)+'-'+ref('O',r)+'-'+ref('P',r)+',0)',
       '=IF(AND(ISNUMBER(Q'+h+'),'+ref('H',r)+'="Ja"),'+ref('AM',r)+'-'+ref('Q',r)+'-'+ref('R',r)+',0)',
-      '=IF(T'+h+'="","",IF(T'+h+'>0,"Julian",IF(T'+h+'<0,"Nico","Unentschieden")))',
+      '=IF(OR(T'+h+'="",'+ref('I',r)+'=""),"",IF(T'+h+'>0,"Julian",IF(T'+h+'<0,"Nico","Unentschieden")))',
       '=IFERROR(VLOOKUP(N'+h+",'Turnier-Cockpit_"+y+"'!$A:$M,9,FALSE),\"Noch kein Import\")",
       '=COUNTBLANK('+ref('C',r)+':D'+r+')+COUNTBLANK('+ref('F',r)+':G'+r+')'
     ];
@@ -208,14 +208,14 @@ function seasonViewSpec_(y,c){
     ['Außenseiter-Challenge · separate Wertung',"=SUM('Turnier-Cockpit_"+y+"'!F2:F"+he+")","=SUM('Turnier-Cockpit_"+y+"'!G2:G"+he+")",'0']
   ];
   metrics.forEach((m,i)=>{const r=14+i;put(r,1,m[0]);put(r,7,m[1]);put(r,10,m[2]);merge(r,1,1,6);merge(r,7,1,3);merge(r,10,1,3);});
-  const abs='ARRAYFORMULA(ABS('+T+'))',hasWin='COUNTIF('+T+',">0")+COUNTIF('+T+',"<0")';
+  const abs='ARRAYFORMULA(IF('+X+'<>"",ABS('+T+'),0))',hasWin='COUNTIF('+X+',"Julian")+COUNTIF('+X+',"Nico")';
   const record=(label,expression)=>'="'+label+': "&IF('+hasWin+'=0,"Noch kein Sieg",INDEX('+X+',MATCH('+expression+','+abs+',0))&" · "&'+expression+'&" Punkte · PC "&INDEX('+N+',MATCH('+expression+','+abs+',0)))';
   put(28,1,record('Größter Tagessieg','MAX('+abs+')'));put(28,7,record('Knappster Sieg','MIN(FILTER('+abs+','+abs+'>0))'));
   put(29,1,'="Längste Siegesserie · Julian "&MAX('+range('AE')+')&" / Nico "&MAX('+range('AF')+')');
   put(29,7,'="Führungswechsel im Saisonverlauf: "&SUM('+range('AG')+')');
   put(30,1,'=IF(AE'+he+'>0,"Aktueller Lauf: Julian · "&AE'+he+'&" Siege",IF(AF'+he+'>0,"Aktueller Lauf: Nico · "&AF'+he+'&" Siege","Aktuell keine Siegesserie"))');
   put(30,7,'="Gewertete Turniere · Julian "&COUNT('+P+')&" / Nico "&COUNT('+Q+')');
-  const recovery='ARRAYFORMULA(IF(ISNUMBER('+T+'),IF(SIGN('+T+')=-SIGN('+range('U')+'-'+T+'),ABS('+T+'),0),0))';
+  const recovery='ARRAYFORMULA(IF('+X+'<>"",IF(SIGN('+T+')=-SIGN('+range('U')+'-'+T+'),ABS('+T+'),0),0))';
   put(31,1,'="Größte Aufholjagd: "&IF(MAX('+recovery+')=0,"Noch keine",INDEX('+X+',MATCH(MAX('+recovery+'),'+recovery+',0))&" · PC "&INDEX('+N+',MATCH(MAX('+recovery+'),'+recovery+',0))&" · "&MAX('+recovery+')&" Punkte")');
   put(31,7,'="Beste Joker-Mehrpunkte · Julian "&IF('+used(P,'E')+'=0,"—",IFERROR(MAX(FILTER('+V+','+main('E')+'="Ja",ISNUMBER('+P+'))),0))&" / Nico "&IF('+used(Q,'H')+'=0,"—",IFERROR(MAX(FILTER('+W+','+main('H')+'="Ja",ISNUMBER('+Q+'))),0))');
   for(const r of [28,29,30,31]){merge(r,1,1,6);merge(r,7,1,6);}
