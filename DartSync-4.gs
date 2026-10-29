@@ -186,7 +186,7 @@ function seasonViewSpec_(y,c){
   put(7,1,'=COUNT('+P+')&" gewertete Turniere"');put(7,9,'=COUNT('+Q+')&" gewertete Turniere"');
   put(7,5,'="Tagessiege: "&COUNTIF('+X+',"Julian")&" : "&COUNTIF('+X+',"Nico")&" · Unentschieden: "&COUNTIF('+X+',"Unentschieden")');
   put(9,1,'="Import vollständig: "&COUNTIF('+Y+',"Vollständig")&" / '+n+' · Haupttipps offen: "&SUM('+Z+')&" · Historische Teilimporte bleiben vorläufig."');merge(9,1,1,12);
-  put(10,1,'=IFERROR("Letzter Datenimport: "&TEXT(MAX(\'Turnier-Cockpit_'+y+'\'!J2:J'+he+'),"dd.mm.yyyy hh:mm"),"Letzter Datenimport: noch keiner")');merge(10,1,1,12);
+  put(10,1,'=IF(MAX(\'Turnier-Cockpit_'+y+'\'!J2:J'+he+')=0,"Letzter Datenimport: noch keiner","Letzter Datenimport: "&TEXT(MAX(\'Turnier-Cockpit_'+y+'\'!J2:J'+he+'),"dd.mm.yyyy hh:mm"))');merge(10,1,1,12);
   for(const [r,label] of [[12,'DIREKTVERGLEICH'],[27,'REKORDE & DUELL'],[49,'TURNIER FÜR TURNIER']]){put(r,1,label);merge(r,1,1,12);}
   for(const [col,w,label] of [[1,6,'Kennzahl'],[7,3,'Julian'],[10,3,'Nico']]){put(13,col,label);merge(13,col,1,w);}
   const best=p=>'=IF(COUNT('+p+')=0,"—",MAX('+p+')&" · PC "&INDEX('+N+',MATCH(MAX('+p+'),'+p+',0)))';
