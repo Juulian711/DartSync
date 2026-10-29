@@ -1,15 +1,15 @@
-/* DartSync 4.2 — Feste Zeilenhöhe und aufgeräumte Ansicht — vollständiger Ersatz des bisherigen Apps Scripts.
+/* DartSync 4.3 — Saisonverlauf und Live-Statistiken — vollständiger Ersatz des bisherigen Apps Scripts.
  * Installation und Datenformat: siehe Anleitung-DartSync.md.
  */
 const DS={first:11,rowHeight:70,maxEvents:200,playerHeader:['Key','Event','Spieler','Flagge','Land','Deutsch?','Status','Beste Runde','Rundenwert','Quelle','Letzter Sync','Besiegt von','Avg Max','Whitewash +','Whitewash -','Hinweis'],matchHeader:['Key','Event','Runde','Links','Rechts','Legs links','Legs rechts','Avg links','Avg rechts','Walkover']};
 function ss_(){const p=PropertiesService.getScriptProperties(),id=p.getProperty('SPREADSHEET_ID');if(id)return SpreadsheetApp.openById(id);const s=SpreadsheetApp.getActiveSpreadsheet();if(!s)throw Error('Cloud-Verbindung zuerst im Tabellenmenü vorbereiten.');p.setProperty('SPREADSHEET_ID',s.getId());return s;}
-function onOpen(){applyWorkbookView_();SpreadsheetApp.getUi().createMenu('DartSync').addItem('Neues Jahr anlegen','createYearSheetPrompt').addItem('Ansicht aufräumen (70 Pixel)','tidyWorkbookView').addItem('Bestehendes Jahr übernehmen','adoptYearPrompt').addItem('Dropdowns aktualisieren','setDropdowns').addItem('Jokerformeln aktualisieren','refreshYearFormulas').addItem('Alle Jahresformeln reparieren','repairAllYearFormulas').addSeparator().addItem('Saisonübersichten aktualisieren','setupSeasonExtras').addItem('Tipp-Lock & automatische Übersicht aktivieren','enableTipLocks').addItem('Tipp-Lock & Übersicht-Automatik stoppen','disableTipLocks').addSeparator().addItem('Cloud-Verbindung vorbereiten','prepareCloud').addItem('Cloud-Abruf pausieren','pauseCloud').addItem('Cloud-Abruf fortsetzen','resumeCloud').addToUi();}
+function onOpen(){migrateSeasonViews_();applyWorkbookView_();SpreadsheetApp.getUi().createMenu('DartSync').addItem('Neues Jahr anlegen','createYearSheetPrompt').addItem('Ansicht aufräumen (70 Pixel)','tidyWorkbookView').addItem('Bestehendes Jahr übernehmen','adoptYearPrompt').addItem('Dropdowns aktualisieren','setDropdowns').addItem('Jokerformeln aktualisieren','refreshYearFormulas').addItem('Alle Jahresformeln reparieren','repairAllYearFormulas').addSeparator().addItem('Saisonübersichten aktualisieren','setupSeasonExtras').addItem('Tipp-Lock & automatische Übersicht aktivieren','enableTipLocks').addItem('Tipp-Lock & Übersicht-Automatik stoppen','disableTipLocks').addSeparator().addItem('Cloud-Verbindung vorbereiten','prepareCloud').addItem('Cloud-Abruf pausieren','pauseCloud').addItem('Cloud-Abruf fortsetzen','resumeCloud').addToUi();}
 function askNumber_(title,text,min,max){const ui=SpreadsheetApp.getUi(),a=ui.prompt(title,text,ui.ButtonSet.OK_CANCEL);if(a.getSelectedButton()!==ui.Button.OK)return null;const n=Number(a.getResponseText());if(!Number.isInteger(n)||n<min||n>max)throw Error('Bitte eine ganze Zahl zwischen '+min+' und '+max+' eingeben.');return n;}
 function createYearSheetPrompt(){const y=askNumber_('Neues Jahr','Jahr, zum Beispiel 2027',2020,2100);if(y===null)return;const n=askNumber_('Turniere','Anzahl der Turniere (1–200)',1,DS.maxEvents);if(n===null)return;createYear_(y,n);SpreadsheetApp.getUi().alert('Jahr '+y+' mit '+n+' Turnieren angelegt.');}
 function config_(y){const raw=PropertiesService.getDocumentProperties().getProperty('year:'+y);if(!raw)throw Error('Jahr '+y+' zuerst anlegen oder übernehmen.');return JSON.parse(raw);}
 function sheet_(name,header){let s=ss_().getSheetByName(name);if(!s){s=ss_().insertSheet(name);s.getRange(1,1,1,header.length).setValues([header]);s.setFrozenRows(1);}if(isHelperSheet_(name)&&!s.isSheetHidden())s.hideSheet();return s;}
 function rows_(s,n){return s.getLastRow()>1?s.getRange(2,1,s.getLastRow()-1,n).getValues():[];}
-function writeRows_(s,header,rows){const old=s.getLastRow();s.getRange(1,1,rows.length+1,header.length).setValues([header].concat(rows));if(old>rows.length+1)s.getRange(rows.length+2,1,old-rows.length-1,header.length).clearContent();}
+function writeRows_(s,header,rows){const needed=rows.length+1;if(s.getMaxRows()<needed)s.insertRowsAfter(s.getMaxRows(),needed-s.getMaxRows());const old=s.getLastRow();s.getRange(1,1,rows.length+1,header.length).setValues([header].concat(rows));if(old>rows.length+1)s.getRange(rows.length+2,1,old-rows.length-1,header.length).clearContent();}
 function createYear_(y,n){if(ss_().getSheetByName(String(y)))throw Error('Jahr existiert bereits.');const template=ss_().getSheetByName('Jahresvorlage');if(!template)throw Error('Jahresvorlage fehlt.');const s=template.copyTo(ss_()).setName(String(y)).showSheet();if(s.getMaxRows()<DS.first+n-1)s.insertRowsAfter(s.getMaxRows(),DS.first+n-1-s.getMaxRows());
 // copyTo erhält alle Spaltenbreiten; ausdrücklich keine automatische Größenanpassung.
 for(let c=1;c<=template.getMaxColumns();c++)s.setColumnWidth(c,template.getColumnWidth(c));
@@ -85,9 +85,7 @@ function setupSeasonExtras(){for(const s of ss_().getSheets())if(/^20\d{2}$/.tes
 function refreshSeason_(y){SpreadsheetApp.flush();const c=config_(y),source=ss_().getSheetByName(String(y)),rows=(assertYearFormulas_(source,c),source.getRange(c.first,1,c.count,41).getValues()),cock=sheet_('Turnier-Cockpit_'+y,cockpitHeader_()),old=rows_(cock,13),settings=new Map(old.map(r=>[Number(r[0]),r]));SpreadsheetApp.flush();const p=rows_(sheet_('Spieler_'+y,DS.playerHeader),16),ms=rows_(sheet_('Matches_'+y,DS.matchHeader),9),stats=seasonStats_(rows,p,settings,ms,new Date());
 source.setRowHeightsForced(c.first,c.count,DS.rowHeight);const out=stats.details.map(d=>{const cfg=settings.get(d.event)||[],key='tip:'+y+':'+d.event,record=PropertiesService.getDocumentProperties().getProperty(key),locked=record&&JSON.parse(record).locked;return [d.event,d.date,d.start,d.pickJ,d.pickN,d.outsiderJ.points,d.outsiderN.points,locked?'Gesperrt':d.start?'Sperre geplant':'Startzeit fehlt',d.state,d.last,d.matches,d.missing,d.story+' Außenseiter: '+d.outsiderJ.status+' / '+d.outsiderN.status];});writeRows_(cock,cockpitHeader_(),out);cock.getRange(2,2,c.count,1).setNumberFormat('dd.mm.yyyy');cock.getRange(2,3,c.count,1).setNumberFormat('dd.mm.yyyy hh:mm').setDataValidation(SpreadsheetApp.newDataValidation().requireDate().setAllowInvalid(false).build());cock.getRange(2,10,c.count,1).setNumberFormat('dd.mm.yyyy hh:mm');cock.getRange(2,3,c.count,3).setBackground('#E0F2FE');cock.getRange(2,13,c.count,1).setWrap(true);cock.setColumnWidths(1,12,130);cock.setColumnWidth(3,175);cock.setColumnWidths(4,2,190);cock.setColumnWidth(13,550);cock.getRange(1,1,1,13).setBackground('#14263D').setFontColor('#FFFFFF').setFontWeight('bold');
 for(let i=0;i<out.length;i++){const e=out[i][0],names=p.filter(r=>Number(r[1])===e).map(r=>r[2]);if(names.length)cock.getRange(i+2,4,1,2).setDataValidation(SpreadsheetApp.newDataValidation().requireValueInList([...new Set(names)],true).setAllowInvalid(false).build());const color=out[i][8]==='Vollständig'?'#DCFCE7':out[i][8]==='Vorläufig'||out[i][8]==='Ergebnisse vorläufig'?'#FEF3C7':'#FEE2E2';cock.getRange(i+2,9).setBackground(color);}
-let dash=ss_().getSheetByName('Saison_'+y);if(!dash){dash=ss_().insertSheet('Saison_'+y);dash.getRange('A1:L1').merge();dash.getRange('A2:L2').merge();for(const r of [4,5,7,8])for(const col of [1,5,9])dash.getRange(r,col,1,4).merge();for(const r of [10,11,12])dash.getRange(r,1,1,12).merge();for(let r=14;r<=21;r++){dash.getRange(r,1,1,5).merge();dash.getRange(r,6,1,7).merge();}}
-dash.getRange('A1').setValue('SAISON-DUELL '+y);dash.getRange('A2').setValue('Julian vs. Nico · Enthält vorläufige Werte; Importstatus im Turnier-Cockpit prüfen.');dash.getRange('A4').setValue('Julian Punkte');dash.getRange('E4').setValue('Führung');dash.getRange('I4').setValue('Nico Punkte');writeFormula_(dash.getRange('A5'),"='"+y+"'!B2");writeFormula_(dash.getRange('I5'),"='"+y+"'!B3");writeFormula_(dash.getRange('E5'),'=IF(A5>I5,"Julian +"&(A5-I5),IF(I5>A5,"Nico +"&(I5-A5),"Gleichstand"))');dash.getRange('A7').setValue('Turniersiege Julian / Nico');dash.getRange('E7').setValue('Aktueller Lauf');dash.getRange('I7').setValue('Joker-Gewinn Julian / Nico');dash.getRange('A8').setValue(stats.details.filter(d=>d.winner==='Julian').length+' / '+stats.details.filter(d=>d.winner==='Nico').length);dash.getRange('E8').setValue(stats.streak);dash.getRange('I8').setValue(stats.details.reduce((t,d)=>t+d.gainJ,0)+' / '+stats.details.reduce((t,d)=>t+d.gainN,0));dash.getRange('A10').setValue(stats.next?'Nächstes offenes Turnier: '+stats.next.event+' · '+(stats.next.date instanceof Date?Utilities.formatDate(stats.next.date,ss_().getSpreadsheetTimeZone(),'dd.MM.yyyy'):'Datum fehlt'):'Alle erfassten Turniere haben Ergebnisse.');dash.getRange('A11').setValue(stats.next?stats.next.tips:'Neue Saison anlegen oder Turnierzahl prüfen.');dash.getRange('A12').setValue(stats.next?'Status: '+stats.next.state+' · '+stats.next.missing+' Haupttipps offen':'');for(let i=0;i<stats.awards.length;i++){dash.getRange(i+14,1).setValue(stats.awards[i][0]);dash.getRange(i+14,6).setValue(stats.awards[i][1]);}
-dash.getRange('A37:L37').merge().setValue('Außenseiter-Challenge · Julian '+stats.details.reduce((t,d)=>t+d.outsiderJ.points,0)+' / Nico '+stats.details.reduce((t,d)=>t+d.outsiderN.points,0)+' · separate Wertung');const head=['Turnier','Julian','Nico','Abstand kumuliert','Joker Δ Julian','Joker Δ Nico','Sieger','Status','WW− Julian','WW− Nico','Challenge Julian','Challenge Nico'];dash.getRange(38,1,1,12).setValues([head]);dash.getRange(39,1,c.count,12).setValues(stats.details.map(d=>[d.event,d.j,d.n,d.played?d.cumulative:'',d.gainJ,d.gainN,d.winner,d.state,d.wwJ,d.wwN,d.outsiderJ.points,d.outsiderN.points]));for(const chart of dash.getCharts())dash.removeChart(chart);dash.insertChart(dash.newChart().setChartType(Charts.ChartType.LINE).addRange(dash.getRange(38,1,c.count+1,1)).addRange(dash.getRange(38,4,c.count+1,1)).setPosition(22,1,0,0).setOption('title','Führungsverlauf · positiv: Julian / negativ: Nico').setOption('width',1050).setOption('height',300).setOption('legend',{position:'none'}).build());dash.setColumnWidths(1,12,90);dash.setRowHeights(1,20,28);dash.getRange('A1:L1').setBackground('#14263D').setFontColor('#FFFFFF').setFontSize(22);dash.getRange('A4:L8').setBackground('#EAF3FB');dash.getRange('A5:L5').setFontSize(20).setFontWeight('bold').setHorizontalAlignment('center');dash.getRange('A10:L12').setBackground('#DCFCE7').setWrap(true);dash.getRange('A38:L38').setBackground('#14263D').setFontColor('#FFFFFF');dash.setFrozenRows(2);}
+renderSeasonView_(y,c);}
 function enableTipLocks(){setupSeasonExtras();for(const t of ScriptApp.getProjectTriggers())if(['guardTipEdit','guardAllTips'].includes(t.getHandlerFunction()))ScriptApp.deleteTrigger(t);ScriptApp.newTrigger('guardTipEdit').forSpreadsheet(ss_()).onEdit().create();ScriptApp.newTrigger('guardAllTips').timeBased().everyMinutes(5).create();guardAllTips();SpreadsheetApp.getUi().alert('Tipp-Protokoll und Sperre aktiviert. Startzeiten im Turnier-Cockpit eintragen.');}
 function guardAllTips(){const lock=LockService.getScriptLock();lock.waitLock(20000);try{for(const sh of ss_().getSheets())if(/^20\d{2}$/.test(sh.getName())){const y=Number(sh.getName());let c;try{c=config_(y);}catch(e){continue;}for(let i=0;i<c.count;i++)guardEvent_(y,c.first+i);refreshSeason_(y);}}finally{lock.releaseLock();}}
 function guardTipEdit(e){if(!e||!e.range)return;const name=e.range.getSheet().getName(),m=name.match(/^(?:Turnier-Cockpit_)?(20\d{2})$/);if(!m)return;const y=Number(m[1]);let c;try{c=config_(y);}catch(err){return;}const lock=LockService.getScriptLock();lock.waitLock(20000);try{for(let i=0;i<c.count;i++)guardEvent_(y,c.first+i);SpreadsheetApp.flush();refreshSeason_(y);}finally{lock.releaseLock();}}
@@ -130,7 +128,7 @@ function repairAllYearFormulas(){
 }
 
 function isHelperSheet_(name){
-  return /^(?:Matches_|Spieler_|Turnier-Cockpit_)20\d{2}$/.test(name)||['Jahresvorlage','Spieler','Setup','Debug','Tipp-Protokoll'].includes(name);
+  return /^(?:Matches_|Spieler_|Turnier-Cockpit_|Saison_)20\d{2}$/.test(name)||['Jahresvorlage','Spieler','Setup','Debug','Tipp-Protokoll'].includes(name);
 }
 function applyWorkbookView_(){
   for(const sheet of ss_().getSheets()){const name=sheet.getName();
@@ -140,4 +138,108 @@ function applyWorkbookView_(){
   }
 }
 function tidyWorkbookView(){applyWorkbookView_();SpreadsheetApp.getUi().alert('Turnierzeilen auf 70 Pixel gesetzt. Hilfstabs sind ausgeblendet und bleiben für die Automatik erhalten.');}
+
+function migrateSeasonViews_(){for(const old of ss_().getSheets()){const match=old.getName().match(/^Saison_(20\d{2})$/);if(!match)continue;const name="Saisonverlauf_"+match[1];if(!ss_().getSheetByName(name))old.setName(name);else if(!old.isSheetHidden())old.hideSheet();}}
+// Gemeinsame, formelbasierte Saisonansicht für bestehende und neue Jahre.
+function seasonViewSpec_(y,c){
+  const n=c.count,end=c.first+n-1,he=n+1,last=50+n,values=Array.from({length:last},()=>Array(34).fill('')),merges=[];
+  const put=(r,col,v)=>{values[r-1][col-1]=v;},merge=(r,col,h,w)=>merges.push([r,col,h,w]);
+  const ref=(col,r)=>"'"+y+"'!"+col+r,main=col=>"'"+y+"'!"+col+c.first+':'+col+end;
+  const range=col=>'$'+col+'$2:$'+col+'$'+he;
+  const P=range('P'),Q=range('Q'),N=range('N'),T=range('T'),V=range('V'),W=range('W'),X=range('X'),Y=range('Y'),Z=range('Z');
+  const sum=col=>'SUM('+range(col)+')',used=(points,toggle)=>'SUMPRODUCT(--ISNUMBER('+points+'),--('+main(toggle)+'="Ja"))';
+  const header=['Turnier','Datum','Julian','Nico','Julian kumuliert','Nico kumuliert','Tagesdifferenz','Vorsprung Julian','Jokermehrwert Julian','Jokermehrwert Nico','Tagessieger','Importstatus','Offene Tipps','WW+ Julian','WW+ Nico','WW− Julian','WW− Nico','Serie Julian','Serie Nico','Führungswechsel','Führung'];
+  header.forEach((v,i)=>put(1,14+i,v));
+  for(let i=0;i<n;i++){
+    const r=c.first+i,h=i+2,seen='OR('+ref('I',r)+'<>"",'+ref('AL',r)+'<>0,'+ref('AO',r)+'<>0)';
+    const formulas=[
+      '='+ref('A',r),'=IF('+ref('B',r)+'="","",'+ref('B',r)+')',
+      '=IF(AND(OR('+ref('C',r)+'<>"",'+ref('D',r)+'<>""),'+seen+'),'+ref('AL',r)+',"")',
+      '=IF(AND(OR('+ref('F',r)+'<>"",'+ref('G',r)+'<>""),'+seen+'),'+ref('AO',r)+',"")',
+      '=IF(OR(ISNUMBER(P'+h+'),ISNUMBER(Q'+h+')),SUM($P$2:P'+h+'),"")',
+      '=IF(OR(ISNUMBER(P'+h+'),ISNUMBER(Q'+h+')),SUM($Q$2:Q'+h+'),"")',
+      '=IF(AND(ISNUMBER(P'+h+'),ISNUMBER(Q'+h+')),P'+h+'-Q'+h+',"")',
+      '=IF(OR(ISNUMBER(P'+h+'),ISNUMBER(Q'+h+')),SUM($P$2:P'+h+')-SUM($Q$2:Q'+h+'),"")',
+      '=IF(AND(ISNUMBER(P'+h+'),'+ref('E',r)+'="Ja"),'+ref('AJ',r)+'-'+ref('O',r)+'-'+ref('P',r)+',0)',
+      '=IF(AND(ISNUMBER(Q'+h+'),'+ref('H',r)+'="Ja"),'+ref('AM',r)+'-'+ref('Q',r)+'-'+ref('R',r)+',0)',
+      '=IF(T'+h+'="","",IF(T'+h+'>0,"Julian",IF(T'+h+'<0,"Nico","Unentschieden")))',
+      '=IFERROR(VLOOKUP(N'+h+",'Turnier-Cockpit_"+y+"'!$A:$M,9,FALSE),\"Noch kein Import\")",
+      '=COUNTBLANK('+ref('C',r)+':D'+r+')+COUNTBLANK('+ref('F',r)+':G'+r+')'
+    ];
+    for(const [points,picks,col] of [['P',['C','D'],'N'],['Q',['F','G'],'N'],['P',['C','D'],'O'],['Q',['F','G'],'O']]){
+      const terms=picks.map(p=>'SUMIF(\'Spieler_'+y+'\'!$A:$A,"'+y+'|"&N'+h+'&"|"&'+ref(p,r)+',\'Spieler_'+y+'\'!$'+col+':$'+col+')');
+      formulas.push('=IF(ISNUMBER('+points+h+'),'+terms.join('+')+',0)');
+    }
+    formulas.push('=IF(X'+h+'="",IFERROR(AE'+(h-1)+'*1,0),IF(X'+h+'="Julian",1+IFERROR(AE'+(h-1)+'*1,0),0))');
+    formulas.push('=IF(X'+h+'="",IFERROR(AF'+(h-1)+'*1,0),IF(X'+h+'="Nico",1+IFERROR(AF'+(h-1)+'*1,0),0))');
+    formulas.push('=IF(AND(AH'+h+'<>0,IFERROR(AH'+(h-1)+'*1,0)<>0,AH'+h+'<>IFERROR(AH'+(h-1)+'*1,0)),1,0)');
+    formulas.push('=IF(ISNUMBER(U'+h+'),IF(U'+h+'<>0,SIGN(U'+h+'),IFERROR(AH'+(h-1)+'*1,0)),IFERROR(AH'+(h-1)+'*1,0))');
+    formulas.forEach((f,j)=>put(h,14+j,f));
+    const tr=51+i;
+    ['=N'+h,'=O'+h,'=IF(ISNUMBER(P'+h+'),P'+h+',"—")','=IF(ISNUMBER(Q'+h+'),Q'+h+',"—")','=IF(X'+h+'="","—",X'+h+')','=IF(ISNUMBER(T'+h+'),T'+h+',"")','=IF(ISNUMBER(U'+h+'),U'+h+',"")','=IF('+ref('E',r)+'="Ja",V'+h+',"—")','=IF('+ref('H',r)+'="Ja",W'+h+',"—")','=Y'+h,'=Z'+h,'=IFERROR(VLOOKUP(N'+h+",'Turnier-Cockpit_"+y+"'!$A:$M,11,FALSE),0)"].forEach((f,j)=>put(tr,j+1,f));
+  }
+  put(1,1,'SAISONVERLAUF '+y);merge(1,1,1,12);
+  put(2,1,'Julian vs. Nico · Vorläufige Importe enthalten · Ein Strich bedeutet: noch keine Wertung für diese Person.');merge(2,1,1,12);
+  for(const [col,label] of [[1,'JULIAN · PUNKTE'],[5,'AKTUELLE FÜHRUNG'],[9,'NICO · PUNKTE']]){put(4,col,label);merge(4,col,1,4);merge(5,col,2,4);merge(7,col,1,4);}
+  put(5,1,'=SUM('+P+')');put(5,9,'=SUM('+Q+')');
+  put(5,5,'=IF(A5>I5,"Julian +"&(A5-I5),IF(I5>A5,"Nico +"&(I5-A5),"Gleichstand"))');
+  put(7,1,'=COUNT('+P+')&" gewertete Turniere"');put(7,9,'=COUNT('+Q+')&" gewertete Turniere"');
+  put(7,5,'="Tagessiege: "&COUNTIF('+X+',"Julian")&" : "&COUNTIF('+X+',"Nico")&" · Unentschieden: "&COUNTIF('+X+',"Unentschieden")');
+  put(9,1,'="Import vollständig: "&COUNTIF('+Y+',"Vollständig")&" / '+n+' · Haupttipps offen: "&SUM('+Z+')&" · Historische Teilimporte bleiben vorläufig."');merge(9,1,1,12);
+  put(10,1,'=IFERROR("Letzter Datenimport: "&TEXT(MAX(\'Turnier-Cockpit_'+y+'\'!J2:J'+he+'),"dd.mm.yyyy hh:mm"),"Letzter Datenimport: noch keiner")');merge(10,1,1,12);
+  for(const [r,label] of [[12,'DIREKTVERGLEICH'],[27,'REKORDE & DUELL'],[49,'TURNIER FÜR TURNIER']]){put(r,1,label);merge(r,1,1,12);}
+  for(const [col,w,label] of [[1,6,'Kennzahl'],[7,3,'Julian'],[10,3,'Nico']]){put(13,col,label);merge(13,col,1,w);}
+  const best=p=>'=IF(COUNT('+p+')=0,"—",MAX('+p+')&" · PC "&INDEX('+N+',MATCH(MAX('+p+'),'+p+',0)))';
+  const form=p=>'=IFERROR(AVERAGE(FILTER('+p+',ROW('+p+')>=LARGE(FILTER(ROW('+p+'),ISNUMBER('+p+')),MIN(5,COUNT('+p+'))))),0)';
+  const avg=col=>'=MAX(ARRAYFORMULA(IFERROR(VALUE(REGEXEXTRACT('+main(col)+',"^[0-9]+[.,]?[0-9]*")),0)))';
+  const metrics=[
+    ['Ø Punkte je gewertetem Turnier','=IFERROR(AVERAGE('+P+'),0)','=IFERROR(AVERAGE('+Q+'),0)','0.0'],
+    ['Tagessiege','=COUNTIF('+X+',"Julian")','=COUNTIF('+X+',"Nico")','0'],
+    ['Beste Tageswertung',best(P),best(Q),'TEXT'],
+    ['Form · Ø der letzten 5 gewerteten Turniere',form(P),form(Q),'0.0'],
+    ['Joker eingesetzt','='+used(P,'E'),'='+used(Q,'H'),'0'],
+    ['Mehrpunkte durch Joker','='+sum('V'),'='+sum('W'),'+0;-0;0'],
+    ['Joker mit Punktegewinn','=IF('+used(P,'E')+'=0,"—",COUNTIF('+V+',">0")&" / "&'+used(P,'E')+')','=IF('+used(Q,'H')+'=0,"—",COUNTIF('+W+',">0")&" / "&'+used(Q,'H')+')','TEXT'],
+    ['Bonuspunkte gesamt','=SUMPRODUCT(--ISNUMBER('+P+'),'+main('AK')+')','=SUMPRODUCT(--ISNUMBER('+Q+'),'+main('AN')+')','0'],
+    ['Turniere mit 9-Darter-Bonus','=SUMPRODUCT(--ISNUMBER('+P+'),--('+main('V')+'>0))','=SUMPRODUCT(--ISNUMBER('+Q+'),--('+main('W')+'>0))','0'],
+    ['Höchster Match-Average der gewählten Pferde',avg('X'),avg('Z'),'0.00'],
+    ['Whitewashes gewonnen','='+sum('AA'),'='+sum('AB'),'0'],
+    ['Whitewashes kassiert','='+sum('AC'),'='+sum('AD'),'0'],
+    ['Außenseiter-Challenge · separate Wertung',"=SUM('Turnier-Cockpit_"+y+"'!F2:F"+he+")","=SUM('Turnier-Cockpit_"+y+"'!G2:G"+he+")",'0']
+  ];
+  metrics.forEach((m,i)=>{const r=14+i;put(r,1,m[0]);put(r,7,m[1]);put(r,10,m[2]);merge(r,1,1,6);merge(r,7,1,3);merge(r,10,1,3);});
+  const abs='ARRAYFORMULA(ABS('+T+'))',hasWin='COUNTIF('+T+',">0")+COUNTIF('+T+',"<0")';
+  const record=(label,expression)=>'="'+label+': "&IF('+hasWin+'=0,"Noch kein Sieg",INDEX('+X+',MATCH('+expression+','+abs+',0))&" · "&'+expression+'&" Punkte · PC "&INDEX('+N+',MATCH('+expression+','+abs+',0)))';
+  put(28,1,record('Größter Tagessieg','MAX('+abs+')'));put(28,7,record('Knappster Sieg','MIN(FILTER('+abs+','+abs+'>0))'));
+  put(29,1,'="Längste Siegesserie · Julian "&MAX('+range('AE')+')&" / Nico "&MAX('+range('AF')+')');
+  put(29,7,'="Führungswechsel im Saisonverlauf: "&SUM('+range('AG')+')');
+  put(30,1,'=IF(AE'+he+'>0,"Aktueller Lauf: Julian · "&AE'+he+'&" Siege",IF(AF'+he+'>0,"Aktueller Lauf: Nico · "&AF'+he+'&" Siege","Aktuell keine Siegesserie"))');
+  put(30,7,'="Gewertete Turniere · Julian "&COUNT('+P+')&" / Nico "&COUNT('+Q+')');
+  const recovery='ARRAYFORMULA(IF(ISNUMBER('+T+'),IF(SIGN('+T+')=-SIGN('+range('U')+'-'+T+'),ABS('+T+'),0),0))';
+  put(31,1,'="Größte Aufholjagd: "&IF(MAX('+recovery+')=0,"Noch keine",INDEX('+X+',MATCH(MAX('+recovery+'),'+recovery+',0))&" · PC "&INDEX('+N+',MATCH(MAX('+recovery+'),'+recovery+',0))&" · "&MAX('+recovery+')&" Punkte")');
+  put(31,7,'="Beste Joker-Mehrpunkte · Julian "&IF('+used(P,'E')+'=0,"—",IFERROR(MAX(FILTER('+V+','+main('E')+'="Ja",ISNUMBER('+P+'))),0))&" / Nico "&IF('+used(Q,'H')+'=0,"—",IFERROR(MAX(FILTER('+W+','+main('H')+'="Ja",ISNUMBER('+Q+'))),0))');
+  for(const r of [28,29,30,31]){merge(r,1,1,6);merge(r,7,1,6);}
+  put(47,1,'Blau: Julian · Violett: Nico · Tagesdifferenz und Vorsprung: positiv = Julian, negativ = Nico.');merge(47,1,1,12);
+  const columns=['PC','Datum','Julian','Nico','Tagessieger','Tagesdifferenz','Vorsprung Julian','Joker Δ Julian','Joker Δ Nico','Importstatus','Tipps offen','Spiele erfasst'];columns.forEach((v,i)=>put(50,i+1,v));
+  return {values,merges,metrics,last,helperEnd:he,charts:[{type:'LINE',title:'Gesamtpunkte im Saisonverlauf',row:33,col:1,series:[18,19]},{type:'COLUMN',title:'Punkte je Turnier',row:33,col:7,series:[16,17]}]};
+}
+function renderSeasonView_(y,c){
+  const book=ss_(),name='Saisonverlauf_'+y,old=book.getSheetByName('Saison_'+y);
+  let dash=book.getSheetByName(name);if(!dash&&old)dash=old.setName(name);if(!dash)dash=book.insertSheet(name);if(old&&old!==dash&&!old.isSheetHidden())old.hideSheet();
+  const spec=seasonViewSpec_(y,c);if(dash.getMaxColumns()<34)dash.insertColumnsAfter(dash.getMaxColumns(),34-dash.getMaxColumns());if(dash.getMaxRows()<spec.last)dash.insertRowsAfter(dash.getMaxRows(),spec.last-dash.getMaxRows());
+  for(const chart of dash.getCharts())dash.removeChart(chart);dash.getRange(1,1,Math.max(dash.getLastRow(),spec.last),34).breakApart().clear();dash.setConditionalFormatRules([]);
+  const locale=book.getSpreadsheetLocale();dash.getRange(1,1,spec.last,34).setValues(spec.values.map(row=>row.map(v=>typeof v==='string'&&v.startsWith('=')?localizedFormula_(v,locale):v)));
+  for(const [r,col,h,w] of spec.merges)dash.getRange(r,col,h,w).merge();
+  dash.showSheet().setHiddenGridlines(true).setFrozenRows(2);dash.setColumnWidths(1,12,100);dash.setColumnWidth(13,20);dash.hideColumns(14,21);dash.setRowHeightsForced(1,spec.last,24);dash.setRowHeight(1,48);dash.setRowHeight(2,36);dash.setRowHeightsForced(51,c.count,70);dash.setRowHeight(50,44);
+  dash.getRange(1,1,spec.last,12).setFontFamily('Arial').setFontSize(10).setFontColor('#172B4D').setVerticalAlignment('middle');
+  for(const r of [1,12,27,49])dash.getRange(r,1,1,12).setBackground('#14263D').setFontColor('#FFFFFF').setFontWeight('bold');dash.getRange('A1').setFontSize(24);
+  dash.getRange('A2:L2').setWrap(true).setFontColor('#52627A');dash.getRange('A4:D7').setBackground('#EFF6FF');dash.getRange('E4:H7').setBackground('#F1F5F9');dash.getRange('I4:L7').setBackground('#F5F3FF');dash.getRange('A4:L7').setHorizontalAlignment('center');dash.getRange('A5:L6').setFontSize(26).setFontWeight('bold');dash.getRange('A5').setFontColor('#2563EB');dash.getRange('I5').setFontColor('#7C3AED');dash.getRange('A7:L7').setFontSize(9).setWrap(true);
+  dash.getRange('A9:L10').setFontSize(10).setFontColor('#52627A');dash.getRange('A13:L13').setBackground('#E2E8F0').setFontWeight('bold');dash.getRange('G13:I26').setHorizontalAlignment('center');dash.getRange('J13:L26').setHorizontalAlignment('center');
+  spec.metrics.forEach((m,i)=>{const r=14+i;dash.getRange(r,1,1,12).setBackground(i%2===0?'#F8FAFC':'#FFFFFF');dash.getRange(r,7).setFontColor('#2563EB').setFontWeight('bold');dash.getRange(r,10).setFontColor('#7C3AED').setFontWeight('bold');if(m[3]!=='TEXT'){dash.getRange(r,7).setNumberFormat(m[3]);dash.getRange(r,10).setNumberFormat(m[3]);}});
+  dash.getRange('A28:L31').setWrap(true);dash.setRowHeightsForced(28,4,40);dash.getRange('A47:L47').setFontColor('#52627A').setFontSize(9);dash.getRange('A50:L50').setBackground('#E2E8F0').setFontWeight('bold').setWrap(true);dash.getRange(51,1,c.count,12).setWrap(true).setHorizontalAlignment('center');dash.getRange(51,2,c.count,1).setNumberFormat('dd.mm.yyyy');dash.getRange(51,6,c.count,4).setNumberFormat('+0;-0;0');
+  const rules=[];for(const [value,color] of [['Vollständig','#DCFCE7'],['Vorläufig','#FEF3C7'],['Teilnehmer fehlen','#FEE2E2']])rules.push(SpreadsheetApp.newConditionalFormatRule().whenTextEqualTo(value).setBackground(color).setRanges([dash.getRange(51,10,c.count,1)]).build());
+  rules.push(SpreadsheetApp.newConditionalFormatRule().whenTextEqualTo('Julian').setBackground('#DBEAFE').setRanges([dash.getRange(51,5,c.count,1)]).build());rules.push(SpreadsheetApp.newConditionalFormatRule().whenTextEqualTo('Nico').setBackground('#EDE9FE').setRanges([dash.getRange(51,5,c.count,1)]).build());dash.setConditionalFormatRules(rules);
+  SpreadsheetApp.flush();
+  for(const ch of spec.charts){let chart=dash.newChart().setChartType(ch.type==='LINE'?Charts.ChartType.LINE:Charts.ChartType.COLUMN).addRange(dash.getRange(1,14,spec.helperEnd,1));for(const col of ch.series)chart=chart.addRange(dash.getRange(1,col,spec.helperEnd,1));dash.insertChart(chart.setNumHeaders(1).setPosition(ch.row,ch.col,0,0).setOption('title',ch.title).setOption('width',590).setOption('height',300).setOption('legend',{position:'bottom'}).setOption('colors',['#2563EB','#7C3AED']).setOption('backgroundColor','#FFFFFF').setOption('useFirstColumnAsDomain',true).setHiddenDimensionStrategy(Charts.ChartHiddenDimensionStrategy.SHOW_BOTH).build());}
+}
 
