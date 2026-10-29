@@ -1,0 +1,56 @@
+name: Historische Turniere 17 bis 30 prüfen
+on:
+  push:
+    branches: [main]
+    paths: ['.github/workflows/audit-2026-17-30.yml']
+  workflow_dispatch:
+permissions:
+  contents: read
+concurrency:
+  group: dartsync-historical-audit
+  cancel-in-progress: false
+jobs:
+  audit:
+    name: Turniere ${{ matrix.label }} prüfen
+    if: github.event.repository.private == false
+    runs-on: ubuntu-latest
+    timeout-minutes: 20
+    strategy:
+      fail-fast: false
+      max-parallel: 1
+      matrix:
+        include:
+          - label: '17–20'
+            events: '2026:17,2026:18,2026:19,2026:20'
+          - label: '21–24'
+            events: '2026:21,2026:22,2026:23,2026:24'
+          - label: '25–28'
+            events: '2026:25,2026:26,2026:27,2026:28'
+          - label: '29–30'
+            events: '2026:29,2026:30'
+    env:
+      APPS_SCRIPT_URL: ${{ secrets.APPS_SCRIPT_URL }}
+      SYNC_TOKEN: ${{ secrets.SYNC_TOKEN }}
+      RUN_ONCE: 'true'
+      EVENT_FILTER_ONLY: 'true'
+      EVENT_FILTER: ${{ matrix.events }}
+      AUDIT_CAPTURE: 'true'
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '24'
+      - name: Browser vorbereiten
+        run: |
+          npm install --omit=dev --ignore-scripts
+          npx playwright install --with-deps chromium
+      - name: Teilnehmer, alle Spiele und 9-Darter vergleichen
+        shell: bash
+        run: node worker.mjs | tee audit.log
+      - name: Öffentliche Quelldaten der Kontrolle sichern
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: audit-${{ matrix.label }}
+          path: audit.log
+          retention-days: 7
