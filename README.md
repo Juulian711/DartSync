@@ -84,3 +84,10 @@ GitHub hat im geprüften Verlauf automatische Starts mit mehrstündigen Abständ
 Nach jedem Durchlauf wird der authentifizierte Abrufplan neu gelesen. Pausierte oder abgeschlossene Turniere werden weiter respektiert. Nach 20 Uhr und an Tagen ohne heutiges offenes Turnier gibt es keine Live-Schleife. Ein Job beendet die Live-Sitzung spätestens nach fünf Stunden; ein bereits wartender oder später von GitHub gestarteter Job kann übernehmen. Nur ein Synchronisierungsjob läuft gleichzeitig, Quelltests können unabhängig davon ausgeführt werden.
 
 Die ursprünglichen Cron-Zeitpläne dienen weiterhin dem automatischen Start und der Übergabe. **Auch der erste Start und ein späterer Jobwechsel können durch GitHub verzögert werden; eine garantierte lückenlose Fünf-Minuten-Aktualisierung ist damit nicht zugesagt.** Ein manueller Run startet dieselbe Live-Sitzung, solange das Turnierfenster offen ist. Es braucht dafür keine Apps-Script-Änderung und keine neuen Secrets. Die 180er-/170er-Erweiterung setzt weiterhin Apps Script 5.2 voraus.
+
+
+## 9-Darter aus Einzelberichten (5.2.2)
+
+Fehlt die veröffentlichte Leistungsübersicht, werden die bereits beendeten Begegnungen jetzt anhand der öffentlichen Einzelberichte geprüft: gewonnenes 501-SIDO-Leg, Start 501, erzielte Punkte 501, genau neun Darts. Ein First-9-Average ist kein 9-Darter. Die Berichte werden pro Live-Sitzung wiederverwendet; neue und geänderte Spiele werden erneut geprüft. Maximal zwei Berichte werden parallel geladen, je Durchlauf gilt ein Zeitbudget von drei Minuten. Ein großer Erstimport kann mehrere Durchläufe benötigen. Nur nach vollständigem Abgleich der im Durchlauf importierten, gespielten Begegnungen werden die Namen über die bestehende nineDarters-Schnittstelle übertragen. Fehlende Berichte führen nicht zu bestätigten Nullwerten. Die bisherige Web-App bleibt kompatibel; neue Secrets sind nicht erforderlich.
+
+Der Quelltest nutzt wie der produktive Import das vorinstallierte Chrome mit aktiviertem Sandbox-Schutz. Dadurch funktioniert er auch unter den AppArmor-Vorgaben des Ubuntu-Runners.

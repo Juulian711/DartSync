@@ -4,25 +4,29 @@ import assert from 'node:assert/strict';
 import {createRequire} from 'node:module';
 import {playerTurnsDom} from './bonus-readers.mjs';
 import {bonusNorm,bonusSignature,matchForReport} from './bonus-core.mjs';
-import {collectThrowBonus} from './bonus-collector.mjs';
+import {collectThrowBonus,reportPlayersToVisit} from './bonus-collector.mjs';
+import {verifiedNines} from './nine-reports.mjs';
 const require=createRequire(import.meta.url),{chromium}=require('playwright');
 // Small authored fixture: eleven legs, one real 170 checkout. No private sheet data.
 const names=['Marvin van Velzen','Mike De Decker'];
-function fixture({missing=false,losingCheckout=false,badCount=false}={}){
- let html='<p>2026 Players Championship 32</p><p>Last 128</p><p>Date: 29-Oct-2026</p><table><tr><th>Leg</th><th>Player</th><th>WA</th><th>CO</th><th>180</th></tr>';
+function fixture({missing=false,losingCheckout=false,badCount=false,darts=false,wrongStart=false,missingDarts=false}={}){
+ let html='<p>2026 Players Championship 32</p><p>Last 128</p><p>Date: 29-Oct-2026</p><table><tr><th>Leg</th><th>Player</th><th>WA</th><th>CO</th><th>180</th>'+(darts?'<th>Game</th><th>DT</th><th>SS</th><th>PTS</th>':'')+'</tr>';
  for(let leg=1;leg<=11;leg++)for(let p=0;p<2;p++){
   if(missing&&leg===11&&p===1)continue;
   const win=p===(leg<=6?0:1),co=win?(leg===7?170:40):(losingCheckout&&leg===1?170:''),count=p===0&&leg<=3||p===1&&leg<=2?1:'';
-  html+='<tr><td>'+(p===0?'1.'+leg:'')+'</td><td>'+names[p]+'</td><td>'+(win?'W':'')+'</td><td>'+co+'</td><td>'+(badCount&&leg===1&&p===0?'1.5':count)+'</td></tr>';
+  html+='<tr><td>'+(p===0?'1.'+leg:'')+'</td><td>'+names[p]+'</td><td>'+(win?'W':'')+'</td><td>'+co+'</td><td>'+(badCount&&leg===1&&p===0?'1.5':count)+'</td>'+(darts?'<td>501 SIDO</td><td>'+(missingDarts?'':leg===1||!win?9:18)+'</td><td>'+(wrongStart?301:501)+'</td><td>'+(win?501:400)+'</td>':'')+'</tr>';
  }return html+'</table>';
 }
-const browser=await chromium.launch(process.env.LOCAL_CHROME?{channel:'chrome',headless:true,chromiumSandbox:true}:{headless:true,chromiumSandbox:true});
-let report;try{const page=await browser.newPage();await page.setContent(fixture());report=await page.evaluate(playerTurnsDom);assert.equal(report.legs,11);assert.deepEqual(report.players.map(p=>[p.won,p.n180,p.n170]),[[6,3,0],[5,2,1]]);for(const opts of [{missing:true},{losingCheckout:true},{badCount:true}]){await page.setContent(fixture(opts));await assert.rejects(()=>page.evaluate(playerTurnsDom));}}finally{await browser.close();}
+const browser=await chromium.launch({channel:'chrome',headless:true,chromiumSandbox:true});
+let report,nineReport;try{const page=await browser.newPage();await page.setContent(fixture());report=await page.evaluate(playerTurnsDom);assert.equal(report.nineAvailable,false);assert.equal(report.legs,11);assert.deepEqual(report.players.map(p=>[p.won,p.n180,p.n170]),[[6,3,0],[5,2,1]]);for(const opts of [{missing:true},{losingCheckout:true},{badCount:true}]){await page.setContent(fixture(opts));await assert.rejects(()=>page.evaluate(playerTurnsDom));}await page.setContent(fixture({darts:true}));nineReport=await page.evaluate(playerTurnsDom);assert(nineReport.nineAvailable);assert.deepEqual(nineReport.players.map(p=>p.n9),[1,0]);assert.deepEqual(nineReport.players[0].nineLegs,['1.1']);for(const opts of [{darts:true,wrongStart:true},{darts:true,missingDarts:true}]){await page.setContent(fixture(opts));assert.equal((await page.evaluate(playerTurnsDom)).nineAvailable,false);}}finally{await browser.close();}
 const match={round:1,left:names[0],right:names[1],leftScore:6,rightScore:5,leftAvg:95,rightAvg:96,walkover:false},signature=bonusSignature(32,match);
 assert.equal(matchForReport(report,[match],2026,32),match);
 for(const r of [{...report,year:2027},{...report,round:2},{...report,legs:10},{...report,players:[report.players[0],report.players[0]]}])assert.throws(()=>matchForReport(r,[match],2026,32));
 assert.equal(bonusNorm('De Decker, Mike'),bonusNorm('Mike De Decker'));
+const nines=verifiedNines([match],[{...nineReport,signature}],32,2026);assert(nines.complete);assert.deepEqual(nines.names,[names[0]]);assert.equal(verifiedNines([match],[],32,2026).complete,false);assert.equal(verifiedNines([match],[{...nineReport,signature,year:2027}],32,2026).checked,0);assert.equal(verifiedNines([{...match,leftScore:7}],[{...nineReport,signature}],32,2026).checked,0);
+assert.deepEqual(reportPlayersToVisit([{left:'A',right:'B'},{left:'A',right:'C'},{left:'C',right:'D'}],new Set(['a','b','c','d'])),['A','C']);
 let pages=0;const cached=await collectThrowBonus({newPage(){pages++;throw Error('Cache must not open a page');}},{year:2026,eventNo:32,players:[names[1]],matches:[match],cache:[{signature}]});assert.equal(cached.pending,0);assert.equal(pages,0);
+const bounded=await collectThrowBonus({newPage(){throw Error('No time budget left');}},{year:2026,eventNo:32,players:[names[1]],matches:[match],maxMillis:0});assert.equal(bounded.pending,1);assert.equal(bounded.reports.length,0);
 const gs=fs.existsSync(new URL('./DartSync-4.gs',import.meta.url))?new URL('./DartSync-4.gs',import.meta.url):new URL('../../outputs/DartSync-5.2.gs',import.meta.url),ctx={Date,Number};vm.createContext(ctx);vm.runInContext(fs.readFileSync(gs,'utf8'),ctx);
 for(let r=10;r<=27;r++)assert.equal(JSON.stringify(ctx.formulas_(2026,r,{jokerUi:false})),JSON.stringify(ctx.formulas51_(2026,r,{jokerUi:false})));
 const future=ctx.formulas_(2027,11,{jokerUi:true});for(let i=0;i<29;i++)if(i!==24&&i!==27)assert.equal(future[i],ctx.formulas51_(2027,11,{jokerUi:true})[i]);assert(future[24].endsWith('+N(AQ11)'));assert(future[27].endsWith('+N(AS11)'));
@@ -48,4 +52,4 @@ Object.assign(archiveCtx,{sealDue_:()=>true,throwBonusReady_:()=>false,updateThr
 const ac={matches:new Map([[1,[]]]),players:new Map([[1,[]]])},as={};assert.equal(archiveCtx.closeEvent_(2027,1,{sheet,row:11},as,ac,Date.now()),false);assert.equal(archived,undefined);
 archiveCtx.throwBonusReady_=()=>true;assert(archiveCtx.closeEvent_(2027,1,{sheet,row:11},as,ac,Date.now()));assert.equal(JSON.parse(archived[2]).length,45);assert.equal(protectedWidth,45);values[42]=999;assert(archiveCtx.restoreClosedRow_(2027,1,sheet,11,as));assert.equal(values[42],12);
 archived[2]=JSON.stringify(Array(41).fill(''));values[0]=999;values[42]=88;assert(archiveCtx.restoreClosedRow_(2027,1,sheet,11,as));assert.equal(values[0],'');assert.equal(values[42],88);
-console.log('Passed bonus checks: real 170 checkout, complete leg tables, partial/bad data rejected, official score matching, cache reuse, unchanged 2026 scores, optional future scores, no duplicate horse counting, stale reports ignored, idempotent imports, atomic rejection and frozen future events.');
+console.log('Passed bonus checks: real 170 checkout, verified winning nine-dart 501 legs, missing dart/start data rejected, complete leg tables, official score matching, cache reuse, bounded report scans, unchanged 2026 scores, optional future scores, idempotent imports and frozen future events.');

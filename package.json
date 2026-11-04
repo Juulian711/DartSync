@@ -2,7 +2,7 @@
   "name": "dartsync-cloud",
   "private": true,
   "type": "module",
-  "version": "5.2.1",
+  "version": "5.2.2",
   "scripts": {
     "start": "node worker.mjs",
     "test": "node test-schedule.mjs && node test-live-session.mjs && node test-bonus.mjs"
