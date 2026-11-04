@@ -1,0 +1,20 @@
+import assert from 'node:assert/strict';
+import fs from 'node:fs';
+import {livePlanEligible,nextLiveTick,runWorkerLoop,LIVE_MAX_MS} from './live-session.mjs';
+import {FAST_CRON,BASE_CRON} from './schedule-policy.mjs';
+const date='2026-11-04',plan={events:[{eventDate:date}]},ms=s=>Date.parse(s);
+assert(!livePlanEligible(plan,new Date(date+'T11:59:59Z')));
+assert(livePlanEligible(plan,new Date(date+'T12:00:00Z')));
+assert(!livePlanEligible(plan,new Date(date+'T19:00:00Z')));
+for(const p of [{paused:true,...plan},{events:[{eventDate:date,closed:true}]},{events:[{eventDate:'2026-11-05'}]},{events:[]}])assert(!livePlanEligible(p,new Date(date+'T14:00:00Z')));
+assert(livePlanEligible({events:[{eventDate:'2026-07-01'}]},new Date('2026-07-01T11:00:00Z')));
+const start=ms(date+'T12:02:00Z');assert.equal(nextLiveTick(start,start+2*60000,true),start+5*60000);assert.equal(nextLiveTick(start,start+11*60000,true),start+15*60000);assert.equal(nextLiveTick(start,start+LIVE_MAX_MS,true),null);assert.equal(nextLiveTick(start,start,false),null);
+const evening=ms(date+'T18:57:00Z');assert.equal(nextLiveTick(evening,evening+60000,true),null);
+let clock=ms(date+'T13:21:00Z'),calls=0;const waits=[],events=[],env={RUN_ONCE:'true',LIVE_SESSION:'true',SYNC_PLAN_FILE:'prepared',SYNC_EVENT_NAME:'workflow_dispatch'},status={liveEligible:true,error:null};
+const exit=await runWorkerLoop({status,env,now:()=>clock,log(){},sleep:async n=>{waits.push(n);clock+=n;},cycle:async()=>{calls++;events.push({file:env.SYNC_PLAN_FILE,event:env.SYNC_EVENT_NAME,cron:env.SYNC_SCHEDULE});clock+=2*60000;if(calls===4)status.liveEligible=false;}});
+assert.equal(exit,0);assert.equal(calls,4);assert.deepEqual(waits,[3*60000,3*60000,3*60000]);assert.equal(events[0].file,'prepared');assert(events.slice(1).every(e=>e.file===''));assert.deepEqual(events.slice(1).map(e=>e.cron),[FAST_CRON,BASE_CRON,FAST_CRON]);
+// Failed cycles retry on the live cadence, then a successful import clears the error.
+clock=start;calls=0;const retryStatus={liveEligible:true,error:null};await runWorkerLoop({status:retryStatus,env:{RUN_ONCE:'true',LIVE_SESSION:'true'},now:()=>clock,log(){},sleep:async n=>clock+=n,cycle:async()=>{calls++;retryStatus.error=calls===1?'temporary':null;if(calls===2)retryStatus.liveEligible=false;}});assert.equal(calls,2);assert.equal(retryStatus.error,null);
+calls=0;await runWorkerLoop({status,env:{RUN_ONCE:'true'},log(){},cycle:async()=>calls++});assert.equal(calls,1);
+const workflow=fs.readFileSync(new URL('./.github/workflows/dartsync.yml',import.meta.url),'utf8');assert(workflow.includes("LIVE_SESSION: 'true'"));assert(workflow.includes('timeout-minutes: 350'));assert(workflow.includes('    concurrency:\n      group: dartsync\n      cancel-in-progress: false'));assert(!workflow.includes('\nconcurrency:'));
+console.log('Passed live sessions: five-minute cadence without scheduler restarts, no catch-up storms, fresh plans, half-hour roster polls, pause/closed/day gates, DST, 20:00 stop, bounded runtime and transient error retry.');

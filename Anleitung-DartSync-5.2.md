@@ -45,3 +45,9 @@ An Turniertagen wird bei jedem erfolgreichen Ergebnisabruf auch die DartConnect-
 Die automatische Teilnehmer-/Ergebnisabfrage läuft nur ab zwei Kalendertagen vor dem Turnier bis zum Ende des Turniertags. Vor Turnierbeginn gibt es noch keine Ergebnis- oder 9-Darter-Auswertung. Ab dem Folgetag finden keine automatischen Nachkontrollen statt. Noch nicht veröffentlichte oder nicht lesbare Leistungsseiten werden als ungeprüft behandelt.
 
 Bis die neue Web-App-Version bereitgestellt ist, funktionieren die bisherigen Importe weiter; der GitHub-Lauf weist lediglich darauf hin, dass automatische 180er-/170er-Updates noch Apps Script 5.2 benötigen.
+
+## GitHub-Ergänzung 5.2.1: fortlaufender Live-Abruf
+
+Der GitHub-Dienst kann ab dieser Ergänzung einen gestarteten Lauf an einem offenen Turniertag zwischen 13 und 20 Uhr für bis zu fünf Stunden weiterführen. Innerhalb dieses Laufs lädt er selbst alle fünf Minuten nach. Ein länger gelber Status **In progress** ist dabei normal. Im Schritt **DartConnect auslesen und Tabelle aktualisieren** stehen die einzelnen Abrufe und der nächste geplante Abrufzeitpunkt.
+
+Die ursprünglichen GitHub-Zeitpläne starten weiterhin neue Läufe; nach spätestens fünf Stunden muss ein wartender oder später ausgelöster Lauf übernehmen. GitHub kann den ersten Start und die Übergabe weiterhin verzögern. Ein durchgehend garantierter Fünf-Minuten-Takt ist dadurch nicht zugesichert. Diese Änderung betrifft ausschließlich GitHub; das vorhandene Apps Script funktioniert damit weiter. Für die neuen 180er-/170er-Details bleibt die oben beschriebene Bereitstellung von Apps Script 5.2 erforderlich.

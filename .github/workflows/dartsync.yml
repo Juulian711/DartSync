@@ -21,9 +21,6 @@ on:
         default: ''
 permissions:
   contents: read
-concurrency:
-  group: dartsync
-  cancel-in-progress: false
 jobs:
   source-test:
     name: DartConnect-Zugriff testen
@@ -35,8 +32,10 @@ jobs:
       - uses: actions/setup-node@v4
         with:
           node-version: '24'
-      - name: Zeitplan prüfen
-        run: node test-schedule.mjs
+      - name: Zeitplan und Live-Sitzung prüfen
+        run: |
+          node test-schedule.mjs
+          node test-live-session.mjs
       - run: npm install --omit=dev --ignore-scripts
       - run: npx playwright install --with-deps chromium
       - name: Wurfbonus und Wertungsschutz prüfen
@@ -46,7 +45,10 @@ jobs:
     name: Google-Tabelle synchronisieren
     if: github.event.repository.private == false
     runs-on: ubuntu-latest
-    timeout-minutes: 25
+    timeout-minutes: 350
+    concurrency:
+      group: dartsync
+      cancel-in-progress: false
     env:
       APPS_SCRIPT_URL: ${{ secrets.APPS_SCRIPT_URL }}
       SYNC_TOKEN: ${{ secrets.SYNC_TOKEN }}
@@ -84,5 +86,6 @@ jobs:
         run: node worker.mjs
         env:
           RUN_ONCE: 'true'
+          LIVE_SESSION: 'true'
           BACKFILL_ON_START: ${{ inputs.backfill && 'true' || 'false' }}
           EVENT_FILTER: ${{ inputs.events || '' }}

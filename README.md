@@ -75,3 +75,12 @@ Ab AP zeigt jedes Jahresblatt die Rundendetails der ursprünglich gewählten Pfe
 Die Quelle sind öffentlich zugängliche Spielberichte mit einzelnen Legs. Der Dienst prüft Spieler, Runde, Ergebnis und Legzahl, verwendet unveränderte Berichte wieder und markiert fehlende Berichte als vorläufig. Nur die benötigten Berichte für die ursprünglichen Tipps werden geladen. Der authentifizierte Abrufplan enthält diese Auswahlen, wird nur temporär auf dem Runner gespeichert, nicht als Artefakt veröffentlicht und durch `.gitignore` ausgeschlossen. Öffentliche Protokolle enthalten für diesen Zusatz nur Zählwerte, keine Tipps. Der bestehende Zeitplan gilt unverändert.
 
 Die neue Web-App muss einmal auf 5.2 aktualisiert werden. Bis dahin laufen bestehende Importe weiter; der neue Worker überspringt nur den Wurfbonus.
+
+
+## Laufende Live-Sitzungen statt ausschließlich Cron-Einzelstarts (5.2.1)
+
+GitHub hat im geprüften Verlauf automatische Starts mit mehrstündigen Abständen ausgelöst; der konfigurierte Fünf-Minuten-Cron allein liefert deshalb keinen verlässlichen Live-Takt. Ein gestarteter Synchronisierungsjob bleibt an einem offenen Turniertag zwischen 13 und 20 Uhr Europe/Berlin jetzt bis zu fünf Stunden aktiv und ruft selbst im Abstand von fünf Minuten ab. Dauert ein Abruf länger, werden verpasste Takte ausgelassen; es gibt keine parallelen Nachholabrufe. Alle ungefähr 30 Minuten werden auch anstehende Turniere innerhalb des bisherigen Zweitagesfensters berücksichtigt.
+
+Nach jedem Durchlauf wird der authentifizierte Abrufplan neu gelesen. Pausierte oder abgeschlossene Turniere werden weiter respektiert. Nach 20 Uhr und an Tagen ohne heutiges offenes Turnier gibt es keine Live-Schleife. Ein Job beendet die Live-Sitzung spätestens nach fünf Stunden; ein bereits wartender oder später von GitHub gestarteter Job kann übernehmen. Nur ein Synchronisierungsjob läuft gleichzeitig, Quelltests können unabhängig davon ausgeführt werden.
+
+Die ursprünglichen Cron-Zeitpläne dienen weiterhin dem automatischen Start und der Übergabe. **Auch der erste Start und ein späterer Jobwechsel können durch GitHub verzögert werden; eine garantierte lückenlose Fünf-Minuten-Aktualisierung ist damit nicht zugesagt.** Ein manueller Run startet dieselbe Live-Sitzung, solange das Turnierfenster offen ist. Es braucht dafür keine Apps-Script-Änderung und keine neuen Secrets. Die 180er-/170er-Erweiterung setzt weiterhin Apps Script 5.2 voraus.
