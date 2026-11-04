@@ -2,3 +2,6 @@ node_modules/
 .env
 *.xlsx
 *.log
+
+# Authenticated, ephemeral sync plan: contains selected horses.
+.dartsync-plan.json

@@ -39,6 +39,8 @@ jobs:
         run: node test-schedule.mjs
       - run: npm install --omit=dev --ignore-scripts
       - run: npx playwright install --with-deps chromium
+      - name: Wurfbonus und Wertungsschutz prüfen
+        run: node test-bonus.mjs
       - run: node verify-source.mjs
   sync:
     name: Google-Tabelle synchronisieren

@@ -63,3 +63,15 @@ Für ein Turnier am Mittwoch beginnt der automatische Teilnehmer-/Ergebnisabglei
 GitHub führt außerhalb der aktiven Zeiträume nur die kurze Prüfung des Google-Abrufplans aus und überspringt Browserinstallation und DartConnect-Import. Falls bei einem neuen Jahresblatt noch Turnierdaten fehlen, ist einmal täglich um 06:37 Uhr ein reiner Kalenderabgleich vorgesehen: Nur veröffentlichte Termine werden ergänzt, keine Teilnehmer oder Spiele geladen. Sobald alle Termine bekannt sind, entfällt auch dieser Browserabruf. Bei ohnehin laufenden Abrufen werden geänderte veröffentlichte Termine ebenfalls übernommen.
 
 Manuelle Läufe bleiben für gezielte Nachkontrollen möglich und sind von der automatischen Tagesgrenze ausgenommen. Die Sperre bereits archivierter Turniere bleibt bestehen; dafür muss zuerst ausdrücklich die Wiederöffnen-Funktion im Google-Script verwendet werden. Ein Apps-Script-Update ist für die neue Abrufbegrenzung nicht erforderlich.
+
+
+
+## 180er und 170er-Finishes (5.2)
+
+Das vollständige Apps Script steht weiterhin in `DartSync-4.gs`; der Dateiname bleibt für bestehende Verweise erhalten. Installation und Bedienung: [Anleitung-DartSync-5.2.md](Anleitung-DartSync-5.2.md).
+
+Ab AP zeigt jedes Jahresblatt die Rundendetails der ursprünglich gewählten Pferde und daneben +1 je 180er / +10 je echtem 170er-Finish. Ein Haken in AP3 schaltet die Regel. **2026 bleibt ausschließlich Test; die Saisonpunkte werden nicht verändert.** Neue Jahre starten ohne aktiven Bonus. Bei Aktivierung zählt der Bonus für noch offene Turniere mit; abgeschlossene Turniere bleiben fest.
+
+Die Quelle sind öffentlich zugängliche Spielberichte mit einzelnen Legs. Der Dienst prüft Spieler, Runde, Ergebnis und Legzahl, verwendet unveränderte Berichte wieder und markiert fehlende Berichte als vorläufig. Nur die benötigten Berichte für die ursprünglichen Tipps werden geladen. Der authentifizierte Abrufplan enthält diese Auswahlen, wird nur temporär auf dem Runner gespeichert, nicht als Artefakt veröffentlicht und durch `.gitignore` ausgeschlossen. Öffentliche Protokolle enthalten für diesen Zusatz nur Zählwerte, keine Tipps. Der bestehende Zeitplan gilt unverändert.
+
+Die neue Web-App muss einmal auf 5.2 aktualisiert werden. Bis dahin laufen bestehende Importe weiter; der neue Worker überspringt nur den Wurfbonus.
