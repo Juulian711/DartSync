@@ -48,7 +48,7 @@ jobs:
     timeout-minutes: 350
     concurrency:
       group: dartsync
-      cancel-in-progress: false
+      cancel-in-progress: ${{ github.event_name == 'push' }}
     env:
       APPS_SCRIPT_URL: ${{ secrets.APPS_SCRIPT_URL }}
       SYNC_TOKEN: ${{ secrets.SYNC_TOKEN }}
