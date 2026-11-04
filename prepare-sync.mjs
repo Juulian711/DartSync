@@ -9,4 +9,4 @@ for(let attempt=0;attempt<3;attempt++){
 const decision=decideSync(plan,{eventName:process.env.SYNC_EVENT_NAME,cron:process.env.SYNC_SCHEDULE});
 if(decision.run)writeFileSync(process.env.SYNC_PLAN_FILE||'.dartsync-plan.json',JSON.stringify({version:1,createdAt:new Date().toISOString(),plan}));
 if(process.env.GITHUB_OUTPUT)appendFileSync(process.env.GITHUB_OUTPUT,'run='+String(decision.run)+'\n');
-console.log(JSON.stringify({state:decision.reason,run:decision.run,liveOnly:decision.liveOnly,date:decision.date||null,todaysEvents:decision.todaysEvents??0}));
+console.log(JSON.stringify({state:decision.reason,run:decision.run,liveOnly:decision.liveOnly,calendarOnly:!!decision.calendarOnly,windowEvents:decision.windowEvents??0,date:decision.date||null,todaysEvents:decision.todaysEvents??0}));
