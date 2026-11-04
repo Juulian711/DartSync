@@ -32,10 +32,18 @@ Die Standardoptionen aktualisieren aktuelle und in den kommenden sieben Tagen st
 
 ## DartSync 5: einmaliges Script-Update
 
-Der vollständige Apps-Script-Code liegt weiterhin unter `DartSync-4.gs`; der Dateiname bleibt zur Kompatibilität erhalten, der Inhalt ist Version 5. Den alten Code vollständig ersetzen, speichern und einmal `installDartSync5` ausführen. Anschließend die bestehende Web-App unter Bereitstellen → Bereitstellungen verwalten → Stift → Neue Version aktualisieren. Die bestehende URL und die Zugangscodes bleiben erhalten. Erst danach sind die neuen Abschluss- und Joker-Funktionen aktiv.
+Der vollständige Apps-Script-Code liegt weiterhin unter `DartSync-4.gs`; der Dateiname bleibt zur Kompatibilität erhalten, der Inhalt ist Version 5.1. Den alten Code vollständig ersetzen, speichern und einmal `installDartSync5` ausführen. Anschließend die bestehende Web-App unter Bereitstellen → Bereitstellungen verwalten → Stift → Neue Version aktualisieren. Die bestehende URL und die Zugangscodes bleiben erhalten. Erst danach sind die neuen Abschluss- und Joker-Funktionen aktiv.
 
 Vollständige Turniere mit ausdrücklich geprüfter 9-Darter-Statistik werden nach 48 Stunden archiviert und für weitere Importe gesperrt. Die Punkte bleiben als Endstand erhalten. Bereits geprüfte historische Turniere werden bei der Einrichtung anhand des Turnierdatums geschlossen. Unvollständige ältere Turniere bleiben offen und werden höchstens alle sechs Stunden nachgeprüft. Der Abrufplan enthält keine abgeschlossenen Turniere; manuelle Abrufe und Backfills umgehen diese Sperre nicht. Offizielle spätere Korrekturen sind über DartSync → Abgeschlossenes Turnier wieder öffnen möglich. Ausgeblendete Archive sind Bestandteil der Sicherung und dürfen nicht gelöscht werden.
 
 2026 behält seine bisherigen Ja/Nein-Spalten und erhält ein Limit von drei Jokern pro Person. Neu angelegte Jahre ab 2027 haben standardmäßig fünf Joker pro Person, beim Anlegen einstellbar. Die Auswahl erfolgt über eine eigene Joker-Seitenleiste, mit Restanzeige und deutlichem Hinweis bei ausgeschöpftem Kontingent. Aktivierte zukünftige Joker reservieren bereits einen Platz. Die bisherigen Übernahmeregeln bleiben bestehen.
 
 Der Saisonverlauf enthält nun zusätzlich Durchschnitts-Match-Averages und Legbilanzen für alle ursprünglich gewählten Pferde, normale Siegerpferde und deutsche Pferde sowie Matchbilanz, Leggewinnquote und getippte Turniersieger. Jede Spielerpartie zählt gleich. Fehlende Averages und Walkovers werden beim Average ausgelassen; Walkovers zählen auch nicht zur Legbilanz. Joker-Ersatzspieler werden in diesen Statistiken der ursprünglichen Tipps nicht mitgerechnet. Ein Direktduell der beiden eigenen Pferde zählt beide Spielerleistungen.
+
+## Teilnehmerabgleich mit Version 5.1
+
+Bei einer vollständig geladenen Teilnehmerliste werden fehlende, noch nicht angetretene Spieler als zurückgezogen geführt und aus den Dropdowns entfernt. Ausdrückliche Absagen werden ebenfalls berücksichtigt. Ein Matchimport erhält diese Statuswerte; bereits gespielte Matches bleiben erhalten. Teilimporte und Listen mit fehlenden Zeilen oder doppelten Namen ersetzen die vorhandene Starterliste nicht.
+
+Für bestehende Installationen: Den vollständigen Code aus `DartSync-4.gs` in Apps Script ersetzen und speichern. Dann die bestehende Web-App unter Bereitstellen → Bereitstellungen verwalten → Stift → Neue Version aktualisieren. Die vorhandenen Trigger bleiben verwendbar. Details stehen in `Anleitung-DartSync-5.1.md`.
+
+Der Worker prüft die eingelesene Spielerzahl gegen die sichtbaren DartConnect-Gruppenzahlen. Die Protokolle enthalten nun aktive und zurückgezogene Teilnehmer sowie die Bestätigung des vollständigen Abgleichs. Eine alte Web-App erzeugt einen Hinweis auf das erforderliche Script-Update, während verfügbare Spielresultate weiter importiert werden.
