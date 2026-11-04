@@ -1,0 +1,27 @@
+import assert from 'node:assert/strict';
+import fs from 'node:fs';
+import vm from 'node:vm';
+import os from 'node:os';
+import path from 'node:path';
+import {FAST_CRON,BASE_CRON,berlinClock,decideSync,isTodaysOpenEvent} from './schedule-policy.mjs';
+import {loadPreparedPlan} from './sync-plan.mjs';
+const today={year:2026,eventNo:33,eventDate:'2026-11-04'},tomorrow={year:2026,eventNo:34,eventDate:'2026-11-05'},plan={configuredYears:1,events:[today,tomorrow]},fast=iso=>({eventName:'schedule',cron:FAST_CRON,now:new Date(iso)});
+assert.equal(decideSync(plan,fast('2026-11-04T11:59:59Z')).run,false);
+assert.equal(decideSync(plan,fast('2026-11-04T12:00:00Z')).run,true);
+assert.equal(decideSync(plan,fast('2026-11-04T18:59:59Z')).run,true);
+assert.equal(decideSync(plan,fast('2026-11-04T19:00:00Z')).run,false);
+assert.equal(decideSync({events:[tomorrow]},fast('2026-11-04T13:00:00Z')).run,false);
+assert.equal(decideSync({events:[{...today,closed:true}]},fast('2026-11-04T13:00:00Z')).run,false);
+assert.equal(decideSync({paused:true},fast('2026-11-04T13:00:00Z')).run,false);
+assert.equal(decideSync(plan,{eventName:'workflow_dispatch',now:new Date('2026-11-04T22:00:00Z')}).run,true);
+assert.equal(decideSync(plan,{eventName:'schedule',cron:BASE_CRON,now:new Date('2026-11-03T22:00:00Z')}).run,true);
+assert.throws(()=>decideSync({configuredYears:0,events:[]}),/Jahresblatt/);
+assert.equal(berlinClock(new Date('2026-07-01T11:00:00Z')).hour,13);assert.equal(berlinClock(new Date('2026-01-01T12:00:00Z')).hour,13);assert.equal(berlinClock(new Date('2026-11-03T23:30:00Z')).date,'2026-11-04');
+const summer={events:[{eventDate:'2026-07-01'}]};assert.equal(decideSync(summer,fast('2026-07-01T11:00:00Z')).run,true);assert.equal(decideSync(summer,fast('2026-07-01T18:00:00Z')).run,false);
+const minutes=FAST_CRON.split(' ')[0].split(',').map(Number),ticks=[];for(let h=13;h<20;h++)for(let m=0;m<60;m++)if(minutes.includes(m)||m===17||m===47)ticks.push(h*60+m);assert.equal(ticks.length,84);for(let i=1;i<ticks.length;i++)assert.equal(ticks[i]-ticks[i-1],5);assert(!minutes.includes(17)&&!minutes.includes(47));assert.equal(ticks[0],13*60+2);assert.equal(ticks.at(-1),19*60+57);
+const tmp=path.join(os.tmpdir(),'dartsync-plan-test-'+process.pid+'.json'),now=Date.parse('2026-11-04T14:00:00Z');fs.writeFileSync(tmp,JSON.stringify({version:1,createdAt:new Date(now).toISOString(),plan}));assert.deepEqual(loadPreparedPlan(tmp,now+60000),plan);assert.equal(loadPreparedPlan(tmp,now+600001),null);fs.unlinkSync(tmp);
+const src=fs.readFileSync(new URL('./worker.mjs',import.meta.url),'utf8'),chunk=src.slice(src.indexOf('const retryEvents='),src.indexOf('let stopping='));let launched=false;class Clock extends Date{constructor(...a){super(...(a.length?a:['2026-11-04T14:00:00Z']));}static now(){return Date.parse('2026-11-04T14:00:00Z');}}
+const status={error:'old'},c={Date:Clock,status,loadPreparedPlan:()=>({events:[tomorrow]}),decideSync,isTodaysOpenEvent,process:{env:{SYNC_EVENT_NAME:'schedule',SYNC_SCHEDULE:FAST_CRON}},post:()=>{throw Error('Unnecessary second plan request')},chromium:{launch:()=>{launched=true;throw Error('Browser must not launch')}},log:()=>{},setTimeout};vm.createContext(c);vm.runInContext(chunk,c);await c.cycle();assert.equal(launched,false);assert.equal(status.error,null);assert.equal(status.events,0);
+const a=src.indexOf('plan.events.flatMap(e=>'),b=src.indexOf('});let failures',a);assert(a>0&&b>a);const choose=new Function('plan','decision','isTodaysOpenEvent','Date','process','byId','retryEvents','firstCycle','return '+src.slice(a,b+2));const selected=liveOnly=>choose({...plan,events:[today,tomorrow,{...today,eventNo:31,closed:true}]},{liveOnly,date:'2026-11-04'},isTodaysOpenEvent,Clock,{env:{}},new Map(),new Set(),true).map(e=>e.eventNo);assert.deepEqual(selected(true),[33]);assert.deepEqual(selected(false),[33,34]);
+const yaml=fs.readFileSync(new URL('./.github/workflows/dartsync.yml',import.meta.url),'utf8');assert.equal((yaml.match(/steps\.plan\.outputs\.run == 'true'/g)||[]).length,2);assert.equal((yaml.match(/timezone: Europe\/Berlin/g)||[]).length,2);
+console.log('Passed: winter/summer time, 13/20 boundaries, match-day gating, closed/paused events, manual/base runs, 84 five-minute slots without duplicates, stale plan cache and browser skipped on non-match days.');

@@ -4,7 +4,7 @@ Dieser Ordner enthält ausschließlich Programmcode. Tabelle, Zugangscode und We
 
 Der Workflow nutzt Standard-Runner in einem öffentlichen Repository und legt weder Artefakte noch Caches an. Er verweigert die Ausführung in privaten Repositories. Die Kostenfreiheit dieser Runner ist dokumentiert: https://docs.github.com/en/billing/concepts/product-billing/github-actions
 
-Die bestehenden Google-Tabelle und das vollständige Apps Script DartSync-4.gs bleiben erhalten. In GitHub müssen APPS_SCRIPT_URL und SYNC_TOKEN als Repository-Secrets eingetragen werden. Sie dürfen nicht in den Code geschrieben werden. Ein geplanter Lauf erfolgt ungefähr alle 30 Minuten; GitHub kann ihn verzögern oder auslassen. Zeitpläne werden auf dem Standardbranch ausgeführt. GitHub deaktiviert Zeitpläne öffentlicher Repositories nach 60 Tagen ohne Repository-Aktivität. Dann muss der Workflow wieder aktiviert werden. Es gibt keine Zusage minutengenauer oder dauerhaft unterbrechungsfreier Ausführung.
+Die bestehenden Google-Tabelle und das vollständige Apps Script DartSync-4.gs bleiben erhalten. In GitHub müssen APPS_SCRIPT_URL und SYNC_TOKEN als Repository-Secrets eingetragen werden. Sie dürfen nicht in den Code geschrieben werden. Reguläre Läufe sind alle 30 Minuten vorgesehen, an Turniertagen zwischen 13 und 20 Uhr deutscher Zeit alle fünf Minuten; GitHub kann ihn verzögern oder auslassen. Zeitpläne werden auf dem Standardbranch ausgeführt. GitHub deaktiviert Zeitpläne öffentlicher Repositories nach 60 Tagen ohne Repository-Aktivität. Dann muss der Workflow wieder aktiviert werden. Es gibt keine Zusage minutengenauer oder dauerhaft unterbrechungsfreier Ausführung.
 
 Nach dem Einrichten müssen die GitHub-Secrets zur bestehenden Web-App passen. Fehlgeschlagene Abrufe sind unter Actions sichtbar; vorhandene Tabellendaten bleiben bei einem Importfehler erhalten.
 
@@ -47,3 +47,11 @@ Bei einer vollständig geladenen Teilnehmerliste werden fehlende, noch nicht ang
 Für bestehende Installationen: Den vollständigen Code aus `DartSync-4.gs` in Apps Script ersetzen und speichern. Dann die bestehende Web-App unter Bereitstellen → Bereitstellungen verwalten → Stift → Neue Version aktualisieren. Die vorhandenen Trigger bleiben verwendbar. Details stehen in `Anleitung-DartSync-5.1.md`.
 
 Der Worker prüft die eingelesene Spielerzahl gegen die sichtbaren DartConnect-Gruppenzahlen. Die Protokolle enthalten nun aktive und zurückgezogene Teilnehmer sowie die Bestätigung des vollständigen Abgleichs. Eine alte Web-App erzeugt einen Hinweis auf das erforderliche Script-Update, während verfügbare Spielresultate weiter importiert werden.
+
+## Fünf-Minuten-Abrufe an Turniertagen
+
+Zwischen 13:00 und 20:00 Uhr in Europe/Berlin ergänzen zusätzliche Termine den bisherigen Halb-Stunden-Takt zu einem Fünf-Minuten-Takt. Sommer- und Winterzeit werden automatisch berücksichtigt. Die Termine liegen auf Minuten 02, 07, 12, 17 usw.; 17 und 47 bleiben die regulären Läufe. Außerhalb des Zeitfensters und an Tagen ohne offenes Turnier bleibt der tatsächliche DartConnect-Abruf beim regulären Takt.
+
+Vor der Browserinstallation wird der Abrufplan der Google-Tabelle gelesen. Zusätzliche Läufe werden ohne Browser übersprungen, wenn heute kein offenes Turnier eingetragen ist, die Cloud pausiert ist oder der Lauf erst nach Ende des Zeitfensters startet. Zusätzliche Läufe prüfen ausschließlich die heutigen Turniere. Die regulären Läufe erfassen weiterhin auch veröffentlichte Teilnehmer bevorstehender Turniere und notwendige Nachkontrollen. Der gelesene Plan wird nur vorübergehend auf dem Runner gespeichert und nicht veröffentlicht. Ein veralteter Plan wird erneut angefordert.
+
+Die Änderung benötigt kein Apps-Script-Update. Manuelle Läufe funktionieren weiterhin jederzeit. GitHub kann Zeitplan-Ereignisse verzögern oder verwerfen; der Fünf-Minuten-Takt ist deshalb ein geplanter Takt und keine Echtzeitgarantie. Die Standard-Runner des öffentlichen Repositorys bleiben kostenlos.
