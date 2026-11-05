@@ -1,6 +1,7 @@
 import {collectThrowBonus} from './bonus-collector.mjs';
 import {bonusSignature,bonusNorm} from './bonus-core.mjs';
 const sessions=new Map();
+export function cachedNineReports(year,eventNo){return [...(sessions.get(year+':'+eventNo)?.values()||[])];}
 export function verifiedNines(matches,reports,eventNo,year){
  const wanted=matches.filter(m=>!m.walkover),valid=new Map(reports.filter(r=>r.nineAvailable===true&&r.eventNo===eventNo&&(year===undefined||r.year===year)).map(r=>[r.signature,r])),positive=new Map();let checked=0;
  for(const m of wanted){const r=valid.get(bonusSignature(eventNo,m));if(!r)continue;checked++;for(const p of r.players)if(p.n9>0)positive.set(bonusNorm(p.name),{name:p.name,sourceUrl:r.sourceUrl,round:r.round,legs:p.nineLegs});}

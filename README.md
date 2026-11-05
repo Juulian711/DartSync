@@ -93,3 +93,12 @@ Fehlt die veröffentlichte Leistungsübersicht, werden die bereits beendeten Beg
 Der Quelltest nutzt wie der produktive Import das vorinstallierte Chrome mit aktiviertem Sandbox-Schutz. Dadurch funktioniert er auch unter den AppArmor-Vorgaben des Ubuntu-Runners.
 
 Ein Code-Update auf `main` löst einen noch laufenden alten Synchronisierungsjob ab, damit neue Korrekturen bereits während der Live-Sitzung wirksam werden. Zeitpläne und manuelle Zusatzstarts brechen eine laufende Sitzung weiterhin nicht ab.
+
+
+## Punktbeste Pferde-Kombination (5.3)
+
+[Anleitung und Berechnungsregeln](Anleitung-DartSync-5.3.md). Das vollständige Apps Script steht weiterhin in `DartSync-4.gs`, jetzt mit Version 5.3. Die Google-Web-App muss einmal auf diese Version aktualisiert werden. Bis dahin laufen die bisherigen Importe weiter; nur die neue automatische Best-Auswahl wartet auf die neue Schnittstelle.
+
+Spalte AT vergleicht alle Kombinationen aus normalem und deutschem Pferd ohne Joker, einschließlich +1 je 180er und +10 je echtem 170er-Finish. Rundenpunkte, Whitewashes, 9-Darter, bester Deutscher, Doppel-Treffer und der Average-Vergleich gegen die tatsächlich gewählten Gegner-Pferde gehen ein. Die Anzeige zeigt für beide Personen die optimale Kombination und ihre Punktzahl; Zellnotizen enthalten die Aufteilung und gleichwertige Alternativen. Die bisherigen Saisonpunkte bleiben unverändert. Der Wurfbonus ist in dieser theoretischen Auswertung unabhängig von AP3 eingeschaltet.
+
+Vollständige Wurfstatistiken werden aus geprüften Einzelberichten oder der Ereignis-Rangliste abgeleitet. Match-/Legzahlen müssen je Teilnehmer passen. Bei höchstem Checkout 170 werden die entsprechenden Einzelberichte zur genauen Anzahl geprüft. Eine Signatur bindet die Tageswerte an Jahr und Matchstand. Unvollständige oder veraltete Tageswerte gelten nicht als bestätigte Nullwerte. Die Rohdaten liegen im ausgeblendeten Tab `Tageswerte_JAHR`. Bereits geprüfte 9-Darter-Einzelberichte werden wiederverwendet; Auswahlen und optimale Ergebnisse werden nicht in öffentliche GitHub-Protokolle geschrieben.

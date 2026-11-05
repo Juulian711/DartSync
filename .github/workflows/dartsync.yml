@@ -36,6 +36,7 @@ jobs:
         run: |
           node test-schedule.mjs
           node test-live-session.mjs
+          node test-optimal.mjs
       - run: npm install --omit=dev --ignore-scripts
       - run: npx playwright install --with-deps chromium
       - name: Wurfbonus und Wertungsschutz prüfen

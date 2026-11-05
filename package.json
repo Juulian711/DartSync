@@ -2,10 +2,10 @@
   "name": "dartsync-cloud",
   "private": true,
   "type": "module",
-  "version": "5.2.2",
+  "version": "5.3.0",
   "scripts": {
     "start": "node worker.mjs",
-    "test": "node test-schedule.mjs && node test-live-session.mjs && node test-bonus.mjs"
+    "test": "node test-schedule.mjs && node test-live-session.mjs && node test-optimal.mjs && node test-bonus.mjs"
   },
   "dependencies": {
     "playwright": "1.64.1"
